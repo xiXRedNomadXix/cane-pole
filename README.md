@@ -17,6 +17,4 @@
 **Install dependancies**
 ```bash
 sudo apt install hostapd pipx
-
-```bash
 pipx install git+https://github.com/xiXRedNomadXix/cane-pole.git
