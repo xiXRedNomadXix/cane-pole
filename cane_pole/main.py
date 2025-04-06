@@ -3,20 +3,13 @@
 import subprocess
 import sys
 import os
-
+from cane_pole.alerts.mac_watcher import check_mac
 # === Dependency Check ===
 try:
     from scapy.all import *
 except ImportError:
     print("[!] scapy is not installed. Try: pip install scapy")
     exit(1)
-
-try:
-    import pyroute2
-except ImportError:
-    print("[!] pyroute2 is not installed. Try: pip install pyroute2")
-    exit(1)
-
 
 # === User Input ===
 def get_user_input():
@@ -25,7 +18,8 @@ def get_user_input():
     ssid = input("Enter the SSID to broadcast: ")
     channel = input("Enter the channel to use (e.g., 6): ")
     passphrase = input("Enter the WPA2 passphrase: ")
-    return interface, ssid, channel, passphrase
+    target_mac = input("[!] (Optional) Target MAC Address: " )
+    return interface, ssid, channel, passphrase, target_mac
 
 
 # === Generate hostapd.conf ===
@@ -51,15 +45,24 @@ ignore_broadcast_ssid=0
 
 
 # === Start hostapd ===
-def start_hostapd(conf_file="hostapd.conf"):
+def start_hostapd(conf_file="hostapd.conf", target_mac=None):
     try:
         print("[+] Starting hostapd...")
-        subprocess.run(["hostapd", conf_file])
-    except FileNotFoundError:
-        print(
-            "[-] hostapd not found. Please install it with: sudo apt install hostapd"
+        proc = subprocess.Popen(
+            ["hostapd", conf_file],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1
         )
 
+        for line in proc.stdout:
+            print("[hostapd] " + line.strip())
+            if target_mac:
+                check_mac(line, target_mac)
+
+    except FileNotFoundError:
+        print("[!] hostapd not found. Please install it with: sudo apt install hostapd")
 
 # === Main Entry Point ===
 def main():
@@ -67,7 +70,7 @@ def main():
         print("[-] This script must be run with sudo/root privileges.")
         sys.exit(1)
 
-    interface, ssid, channel, passphrase = get_user_input()
+    interface, ssid, channel, passphrase, target_mac = get_user_input()
     generate_hostapd_conf(interface, ssid, channel, passphrase)
     start_hostapd()
 
